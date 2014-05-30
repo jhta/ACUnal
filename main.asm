@@ -4,7 +4,7 @@ TITLE MASM Template						(main.asm)
 ; Revision date:
 INCLUDE Irvine32.inc
 INCLUDE macros.inc
-TAM_VECTOR = 500
+TAM_VECTOR = 1000
 TAM_BUFER = 5000
 
 .data
@@ -13,13 +13,15 @@ MensajeHolaHugo byte "                         Universidad Nacional de Colombia 
 				byte "                   Regresion polinomial por minimos cuadrados",0ah,0dh
 				byte "                                Semestre 3-2013              ",0ah,0dh,0ah,0dh,0
 errorcillo real4 0.0
+mediamedia real4 ?
 denominadorerror dword 0
 auxiliarciclociclo1 dword 0
 MensajeBienvenida BYTE "Generacion automatica de numeros aleatorios para la regresion lineal",0ah,0dh,0
 mensajeerrorxd byte 0ah,"El error es aproximadamente:",0ah,0dh,0
 MensajeCantidad BYTE "Por favor ingrese la cantidad de observaciones (X,Y) que desea tener",0ah,0dh,0
 MensajeGrado BYTE 0ah,"Por favor ingrese el grado del polinomio al cual desea aproximar",0ah,0dh,0
-MensajeCantidad1 BYTE 0ah,"Ingrese el tamaño del array de datos",0ah,0dh,0
+MensajeCantidad1 BYTE 0ah,"Por favor ingrese la cantidad de observaciones (X,Y) que ingreso en el archivo de texto",0ah,0dh
+					BYTE "Si es por generacion con numeros aleatorios o ingreso manual vuelva e ingrese la cantidad de observaciones que desea",0ah,0dh,0
 
 MensajeInicialAviso BYTE 0ah,0ah, " La aplicacion fue desarrollada por Juan Felipe Mejía y Stiven cicloonda para     efectos de la evaluacion parcial del curso de arquitectura de computadores, la      difusion parcial o completa de su contenido es ilegal ",0ah,0dh,0
 				   ;BYTE "parcial del curso de arquitectura de computadores, la difusion parcial o completa de su contenido es ilegal",0ah,0dh,0
@@ -42,6 +44,7 @@ Auxiliar DWORD ?
 bufer BYTE TAM_BUFER DUP(?)
 nombreArchivo BYTE 80 DUP(0)
 manejadorArchivo HANDLE ?
+auxCuadradosVarianza REAL4 ?
 pepito DWORD ?
 pepito2 DWORD ?
 bytes_leidos DWORD ?
@@ -60,9 +63,14 @@ indicey DWORD 0
 a REAL4 10000 DUP(?)        ;Polinomio... a<0> + a<1>x + a<2>x^2...
 t REAL4 10000 DUP(?)        ;terminos independientes
 s REAL4 10000 DUP(?)
-m REAL4 10000 DUP(?)        ;array coeficientes
+m REAL4 10000 DUP(?)        ;array 
+CuadradosVarianza REAL4 ?
+mediaGeometrica REAL4 ?
 aux_ptnv dword ?
 auxesi dword 0
+sumavarianza REAL4 ?
+varianza REAL4 ?
+CuasiVarianza REAL4 ?
 contadorparaimpresion dword 0
 pideXI BYTE 'Por favor ingrese el valor X del punto ',0
 pideYI BYTE 'Por favor ingrese el valor Y del punto ',0
@@ -87,12 +95,14 @@ auxaux DWORD ?
 gradociclo DWORD ? 
 gradomasdos DWORD ?  
 p REAL4 10000 DUP(?)  
+desvtip REAL4 ?
 auxcicloaux2 DWORD ?
 auxManejo REAL4 0.0	;para manejar el indice de array m
 verror REAL4 0.0
 max REAL4 0.0
 MediaAritmetica REAL4 0.0
 Promedio REAL4 0.0
+Productoria REAL8 1.0
 numAux REAL4 0.001
 ;aux DWORD ?
 decrementadora DWORD ?
@@ -116,12 +126,15 @@ mensajeestimadores BYTE "Los coeficientes del polinomio en orden descendente, de
 mensajeses BYTE "Estas son las S : ",0dh,0ah,0
 mensajesm  BYTE "Esta es la m : ",0dh,0ah,0
 condicional DWORD 1   
+AuxiliarPotencia REAL4 ?
+SumatoriaArmonica REAL4 0.0
 uno DWORD 1                ;constante uno
 acum REAL4 0.0        ;inicio de variable acum en cero
 consuno REAL4 1.0        ;constante uno
 conscero REAL4 0.0        ;constante cero
 pow REAL4 ?        ;variable para calcular la pow
 variablereal REAL4 ?  ;variable para descongestionar la pila
+AuxiliarArmonica REAL4 0.0
 grado DWORD ?         ;grado del polinomio
 indice DWORD ?        ;indice del polinomio
 
@@ -328,6 +341,7 @@ finciclopruebafraccion:			;aqui se valida si el número original es positivo o n
 elevacion_neg:
 	mov eax, contadorfraccion	;la conversion se realiza de la siguiente manera: el numero a convertir se encuentra en st(1), y lo dividimos
 	idiv diez					;entre 1*10^n, donde n es la cantidad de cifras decimales que tiene el número original
+	idiv diez
 	mov contadorfraccion,eax
 	fild contadorfraccion
 	fdivp st(1),st(0)
@@ -337,9 +351,11 @@ elevacion_neg:
 elevacion_pos:
 	mov eax, contadorfraccion
 	idiv diez
+	idiv diez
 	mov contadorfraccion,eax
-	fild contadorfraccion
+	fild contadorfraccion 
 	fdivp st(1),st(0)
+
 	fadd
 	jmp salir_elev
 salir_elev:
@@ -452,35 +468,233 @@ terminar:
 salida:
 	;jmp iniciar
 iniciar:
- mov esi,0
+finit
+	 mov esi,0
 		 mov aux, 0 
 		 mov edx, offset MensajeCantidad1
 		 call writestring
 		call readint
 		mov npuntos,eax
 		mov ecx,eax
-;//////////////////////////////////////////////////////////////////////////////
-; CALCULAR LA MEDIA ARITMETICCA
-;///////////////////////////////////////////////////////////
-
-fld vectorcillo[esi*4]
-fstp MediaAritmetica
-CicloPromedio:
-    finit
-    inc esi
-    ; Vectorcillo[Esi*4]
-    fld vectorcillo[esi*4]
-    fld Promedio
-    fadd St(0),St(1) 
-    fstp Promedio
+		CicloPromedio:
+        finit
+        fld vectorcillo[esi*4] 
+        fld Promedio  ;St(1)=Promedio St(0)=vectorcillo[Esi*4]
+        fadd
+        fstp Promedio
+        inc esi
 loop CicloPromedio
+fld Promedio
 
-fld npuntos
-fld Promedio ;ponelo vos que yo no se cual es
-fdiv 
+finit
+fild npuntos 
+fld Promedio
+fdiv st(0),st(1)
+
 fstp MediaAritmetica
 fld MediaAritmetica
-Call writefloat
+
+
+
+;MEDIA GEOMETRICA
+		mov esi, 0
+		mov eax, npuntos
+		mov ecx,eax
+		finit
+		CicloProductoria:
+		;fld Productoria 
+        fld vectorcillo[esi*4]  ;St(0)=Productoria 
+        fmul Productoria  
+        fstp Productoria   
+        inc esi
+		finit
+	loop CicloProductoria
+	fld Productoria
+		finit
+
+fild npuntos
+fild uno
+fdiv st(0),st(1)
+fstp AuxiliarPotencia
+finit
+fld AuxiliarPotencia
+fld Productoria
+fyl2x
+f2xm1
+fild uno
+fadd
+Fstp MediaGeometrica
+ 
+;2^[y * log2 (x)] = T  = T=X^y
+;fstp AuxiliarProductoria
+
+
+;Calculo mediaGeometrica
+;*******************************************************
+
+;Calculo Media Armonica
+
+
+		mov eax, npuntos
+		mov esi,0
+		mov ecx,eax
+		finit
+	CicloArmonica:
+		fld vectorcillo[esi*4]
+		fild uno
+		fdiv st(0),st(1)
+		fstp AuxiliarArmonica		
+		finit
+		fld AuxiliarArmonica
+		fld SumatoriaArmonica
+		fadd
+		fstp SumatoriaArmonica
+		inc esi
+		finit
+     loop CicloArmonica
+	 fild npuntos
+fld SumatoriaArmonica
+fdiv st(0),st(1)
+fstp AuxiliarArmonica
+finit
+fld AuxiliarArmonica
+fild uno
+fdiv st(0),st(1)
+fstp SumatoriaArmonica
+fld SumatoriaArmonica
+;*****************************************************
+;Calculo Varianza y cuasiVarianza
+finit
+mov eax, npuntos
+		mov esi,0
+		mov ecx,eax
+		finit
+		CicloVarianza:
+		fld vectorcillo[esi*4] ;St(0)=vectorcillo
+		fld MediaAritmetica  ;st(0)=vectorcillo, st(1)= Media
+		fsub st(0),st(1)
+		fstp auxCuadradosvarianza	
+		finit
+		fld auxCuadradosvarianza
+		fmul st(0),st(0)
+		fld sumavarianza
+		fadd	
+		fstp sumavarianza
+		finit
+		inc esi
+		loop CicloVarianza
+		
+		fild npuntos
+		fld sumavarianza
+			fdiv st(0),st(1)
+			fstp Varianza
+		
+		dec npuntos		
+		fild npuntos
+		fld sumavarianza
+		fdiv st(0),st(1)
+		fstp CuasiVarianza
+		inc npuntos
+		
+	;*******************************************
+	;Desviación típica
+	fld varianza
+	fsqrt 
+	fstp DesvTip
+
+	
+	;********************************************
+	;Desviación media respecto a la media
+	finit
+	mov eax, npuntos
+		mov esi,0
+		mov ecx,eax
+		finit
+		Ciclomediamedia:
+		fld vectorcillo[esi*4] ;St(0)=vectorcillo
+		fld MediaAritmetica  ;st(0)=vectorcillo, st(1)= Media
+		fsub st(0),st(1)
+		fabs
+		fld auxaux
+		fadd
+		fstp auxaux
+		finit
+		inc esi
+		loop Ciclomediamedia
+		fild npuntos
+		fld auxaux
+		fdiv st(0),st(1)
+		fstp mediamedia
+		fld mediamedia
+
+		call writefloat
+
+
+;*****************************************
+;Ordenamiento del vector para el cálculo de la mediana usando el método de burbuja
+
+mov ebx,npuntos
+mov auxaux, ebx
+dec auxaux
+ordenBurbuja:
+ 
+  mov ebx,0     ;posición
+  mov ecx,0    ;cambio
+  mov eax,0     ;i
+ 
+bucleExterno:      ; for (i=0; i<100; i++)
+  cmp eax,auxaux
+  je finBuble
+ 
+  inc eax                       
+  mov ebx,eax                   
+  dec eax                       
+ 
+bucleInterno:
+  mov edx,0                     
+  cmp ebx,npuntos
+  je bucleExterno 
+ 
+    mov edx,dword ptr[vectorcillo+eax*4]  
+  cmp dword ptr[vectorcillo+ebx*4],edx       
+  jng incrementaPosicion                
+ 
+  mov ecx, dword ptr[vectorcillo+ebx*4]
+      mov edx,dword ptr[vectorcillo+eax*4]  
+  mov dword ptr[vectorcillo+ebx*4],edx
+  mov dword ptr[vectorcillo+eax*4], ecx
+incrementaPosicion:
+  inc ebx
+ 
+  cmp ebx,npuntos
+  je  incrementa_i               
+  jmp bucleInterno
+incrementa_i:
+  inc eax
+  jmp bucleExterno
+ 
+finBuble:  
+
+mov ecx, npuntos
+mov esi, 0
+;ciclomuestra2:		
+;		call crlf
+;		fld vectorcillo[esi*4]			;impresión de vertorcillo con los datos correspondientes.
+;	    call writefloat
+;		fstp garbage
+;		inc esi
+;loop ciclomuestra2
+
+
+;FIN DEL ORDENAMIENTO DEL VECTOR 
+;NOTA: EL TOMA EL VECTOR DEL TAMAÑO DE NPUNTOS.
+;******************************************************************************
+
+;Calculo de la mediana.
+
+mov esi, 249 ;con N/2 -1 
+fld vectorcillo[esi*4]
+call writefloat
 
 
 	salidillafinalsita:
